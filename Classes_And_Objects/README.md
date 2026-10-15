@@ -386,7 +386,7 @@ Student(const std::string& n, int a)
 
 初始化列表能够明确表达“对象创建时应当处于什么状态”，所以通常优先使用。
 
-![img](E:\C++\Classes_And_Obects\image\img.png)
+![img](image/img.png)
 
 ### 1、哪些成员必须在初始化阶段设置？
 
