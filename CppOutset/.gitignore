@@ -1,0 +1,45 @@
+# IDE 配置文件（CLion / JetBrains）
+.idea/
+*.iml
+CMakeLists.txt.user
+
+# Visual Studio / VS Code
+.vs/
+*.vcxproj.user
+*.suo
+.vscode/
+
+# CMake 构建产物与本地生成配置
+cmake-build-*/
+build/
+out/
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+compile_commands.json
+install_manifest.txt
+CTestTestfile.cmake
+Testing/
+
+# 编译产物
+*.exe
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.dylib
+*.so
+*.pdb
+*.ilk
+*.exp
+*.idb
+*.pch
+*.gch
+
+# 系统与工具缓存
+.cache/
+.clangd/
+*.log
+Thumbs.db
+.DS_Store
