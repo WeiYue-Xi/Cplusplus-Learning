@@ -1,0 +1,84 @@
+# ============================================================
+#  Ignored: IDE / editor configuration and project metadata
+# ============================================================
+.idea/
+.vs/
+.vscode/
+*.iml
+*.ipr
+*.iws
+out/
+.idea_modules/
+
+# ============================================================
+#  Ignored: CMake / build output (CLion build trees, etc.)
+# ============================================================
+cmake-build-*/
+build/
+Build/
+out/build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+install_manifest.txt
+Testing/
+compile_commands.json
+.ninja_deps
+.ninja_log
+build.ninja
+Makefile
+*.cmake.stamp
+
+
+# ============================================================
+#  Ignored: compiled objects, libraries and binaries
+# ============================================================
+*.o
+*.obj
+*.lo
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+*.pdb
+*.ilk
+*.idb
+*.exp
+*.gch
+*.pch
+
+# ============================================================
+#  Ignored: debug / profiling / dependency artifacts
+# ============================================================
+*.su
+*.d
+*.dSYM/
+*.gcno
+*.gcda
+*.gcov
+*.profraw
+*.profdata
+core
+core.*
+vgcore.*
+
+# ============================================================
+#  Ignored: system, tool caches and misc local files
+# ============================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+.cache/
+.ccache/
+*.swp
+*.swo
+*~
+*.log
+.venv/
+venv/
