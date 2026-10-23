@@ -11,6 +11,7 @@ C++ 学习笔记与练习代码，按学习阶段整理。
 | 3 | 日期类练习：日期运算、比较及输入输出 | [Date](Classes_And_Objects/Date/) |
 | 4 | 内存管理：new/delete、动态数组、malloc/free、定位 new | [Memory_Management](Memory_Management/README.md) |
 | 5 | 模板：函数模板、模板实参推导与显式实例化、函数模板与重载、类模板、模板参数种类与模板特化 | [Templates](Templates/README.md) |
+| 6 | STL 与 string：容器、迭代器、反向迭代器、字符串操作、常用算法与 auto | [CPPString](CPPString/README.md) |
 
 ## 目录结构
 
@@ -48,10 +49,14 @@ Cplusplus-Learning/
 │       ├── 03_student.cpp
 │       ├── 04_malloc_free.cpp
 │       └── 05_placement_new.cpp
-└── Templates/
+├── Templates/
+│   ├── README.md
+│   ├── main.cpp
+│   └── .gitignore
+└── CPPString/
     ├── README.md
-    ├── main.cpp
-    └── .gitignore
+    ├── CMakeLists.txt
+    └── main.cpp
 ```
 
 ## 使用方式
@@ -62,6 +67,7 @@ Cplusplus-Learning/
 - `Classes_And_Objects` 保留原有源码结构；`main.cpp` 是程序入口，`Date/test.cpp` 提供 `test()` 函数，没有独立的 `main()`。
 - `Memory_Management` 包含内存管理笔记与 5 个简短的模块化示例，要求 CMake 3.20 或更新版本，以及支持 C++20 的编译器；学习顺序见[入门示例说明](Memory_Management/examples/入门示例说明.md)。
 - `Templates` 包含模板笔记与示例代码，`main.cpp` 是程序入口，演示函数模板、模板实参推导、显式实例化与类模板（`namespace A` 中的 `Stack`）；该章沿用本地 IDE 工程习惯，`CMakeLists.txt`、`.idea/`、`cmake-build-*` 等本地生成的文件由该章 `.gitignore` 排除，需要构建时自行生成。
+- `CPPString` 包含 STL、`std::string` 与 `auto` 笔记，`main.cpp` 演示 vector 遍历与 string 反向迭代器；要求 CMake 4.0 或更新版本，以及支持 C++20 的编译器。
 - 每个章节保留自己的 `.gitignore`；仓库根目录忽略常见的本地构建产物和 IDE 配置。
 
 ## 仓库来源与历史
@@ -73,6 +79,6 @@ Cplusplus-Learning/
 | `CppOutset/` | [WeiYue-Xi/CppOutset](https://github.com/WeiYue-Xi/CppOutset) | `c0df33c` |
 | `Classes_And_Objects/` | [WeiYue-Xi/Classes_And_Objects](https://github.com/WeiYue-Xi/Classes_And_Objects) | `67c1e80` |
 
-`Templates/` 为后续直接在本仓库新增的章节，不经过 subtree 导入。
+`Templates/`、`CPPString/` 为后续直接在本仓库新增的章节，不经过 subtree 导入。
 
 源码和笔记保留在各自目录，类和对象笔记中的图片使用仓库内的相对路径。历史提交中的路径仍为原仓库路径，可通过 `git log --all --graph --oneline` 查看完整的合并历史。
