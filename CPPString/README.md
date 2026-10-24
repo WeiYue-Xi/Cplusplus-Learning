@@ -222,9 +222,11 @@ text.clear();         // 空串，不保证释放容量
 
 | 接口 | 说明 |
 | --- | --- |
-| `text[pos]` | 普通字符访问要求 `pos < size()`，不提供越界异常检查 |
+| `text[pos]` | 普通字符访问要求 `pos < size()`；不保证运行时边界检查，调试实现可能触发断言 |
 | `text.at(pos)` | 越界抛出 `std::out_of_range` |
 | `front()` / `back()` | 访问首尾字符，要求非空 |
+
+部分标准库会在启用调试检查时对 `operator[]` 的下标进行断言，失败时终止程序；这不同于 `at()` 抛出可捕获的 `std::out_of_range`。C++20 中，`pos > size()` 属于未定义行为，不能依赖调试断言处理越界。
 
 `text[text.size()]` 可读取末尾 `\0`，不能把该位置当作可写的追加位置。
 
@@ -268,6 +270,10 @@ auto word = text.substr(6, 6);   // "string"
 ```
 
 `substr` 的第二项是**数量**，不是结束下标。上述下标形式的 `insert`、`erase`、`replace`、`substr` 在 `pos > size()` 时抛出异常；`pos == size()` 可表示末尾。连续序列的中间插删通常需要搬移后续元素。
+
+> [!CAUTION]
+>
+> `insert`、`erease`、`replace`谨慎使用，底层数据挪动，效率低下，0(N)。
 
 ### 9.2 查找与 npos
 

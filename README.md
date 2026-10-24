@@ -67,7 +67,7 @@ Cplusplus-Learning/
 - `Classes_And_Objects` 保留原有源码结构；`main.cpp` 是程序入口，`Date/test.cpp` 提供 `test()` 函数，没有独立的 `main()`。
 - `Memory_Management` 包含内存管理笔记与 5 个简短的模块化示例，要求 CMake 3.20 或更新版本，以及支持 C++20 的编译器；学习顺序见[入门示例说明](Memory_Management/examples/入门示例说明.md)。
 - `Templates` 包含模板笔记与示例代码，`main.cpp` 是程序入口，演示函数模板、模板实参推导、显式实例化与类模板（`namespace A` 中的 `Stack`）；该章沿用本地 IDE 工程习惯，`CMakeLists.txt`、`.idea/`、`cmake-build-*` 等本地生成的文件由该章 `.gitignore` 排除，需要构建时自行生成。
-- `CPPString` 包含 STL、`std::string` 与 `auto` 笔记，`main.cpp` 演示 vector 遍历与 string 反向迭代器；要求 CMake 4.0 或更新版本，以及支持 C++20 的编译器。
+- `CPPString` 包含 STL、`std::string` 与 `auto` 笔记，`main.cpp` 是本章练习入口；要求 CMake 4.0 或更新版本，以及支持 C++20 的编译器。
 - 每个章节保留自己的 `.gitignore`；仓库根目录忽略常见的本地构建产物和 IDE 配置。
 
 ## 仓库来源与历史
