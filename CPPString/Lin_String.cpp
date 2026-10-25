@@ -58,3 +58,49 @@ Lin_String::iterator Lin_String::begin()
 {
     return _str;
 }
+
+Lin_String::const_iterator Lin_String::begin() const
+{
+    return _str;
+}
+
+Lin_String::const_iterator Lin_String::end() const
+{
+    return _str + _size;
+}
+
+void Lin_String::reserve(size_t n)
+{
+    if (n > _capacity)
+    {
+        char* nStr = new char[n + 1];
+        strcpy(nStr,_str);
+        delete[] _str;
+        _str = nStr;
+        _capacity = n;
+    }
+}
+
+void Lin_String::push_back(char ch)
+{
+    if (_size > _capacity)
+    {
+        size_t newCapacity = _capacity == 0 ? 4 : _capacity * 2;
+        reserve(newCapacity);
+    }
+    _str[_size] = ch;
+    ++_size;
+    _str[_size] = '\0';
+}
+
+void Lin_String::append(const char* str)
+{
+    size_t len = strlen(str);
+    if (_size + len > _capacity)
+    {
+        size_t newCapacity = 2 * _capacity > _size + len ? 2 * _capacity : _size + len;
+        reserve(newCapacity);
+    }
+    strcpy(_str + _size,str);
+    _size += len;
+}

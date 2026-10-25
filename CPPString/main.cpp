@@ -25,5 +25,14 @@ int main()
         ++it1;
     }
     cout << endl;
+
+    Lin_String s2("program");
+    Lin_String::const_iterator it2 = s2.begin();
+    while (it2 != s2.end())
+    {
+        cout << *it2;
+        *it2++;
+    }
+    cout << endl;
     return 0;
 }
