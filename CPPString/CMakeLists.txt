@@ -3,4 +3,7 @@ project(CPPString)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(CPPString main.cpp)
+add_executable(CPPString main.cpp
+        Lin_String.cpp
+        Lin_String.h
+)
