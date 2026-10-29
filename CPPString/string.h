@@ -15,7 +15,9 @@ private:
     std::size_t _size = 0;
     std::size_t _capacity = 0;
 
+
 public:
+    static const size_t npos;
     typedef char* iterator;
     typedef const char* const_iterator;
 
@@ -46,8 +48,23 @@ public:
 
     friend std::ostream& operator<<(std::ostream& out, const string& s);
 
-    void insert(size_t pos,char ch);
-    void insert(size_t pos,const char* str);
+    void pop_back();
+
+    string& insert(size_t pos,char ch);
+    string& insert(size_t pos,const char* str);
+    string& erase(size_t pos = 0,size_t len = npos);
+
+    size_t find(char ch,size_t pos) const;
+    size_t find(const char* str,size_t pos) const;
+
+    string substr(size_t pos,size_t len = npos) const;
+
+    bool operator<(const string& s) const;
+    bool operator<=(const string& s) const;
+    bool operator>(const string& s) const;
+    bool operator>=(const string& s) const;
+    bool operator==(const string& s) const;
+    bool operator!=(const string& s) const;
 };
 
 #endif //CPPSTRING_STRING_H

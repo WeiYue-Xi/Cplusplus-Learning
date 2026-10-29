@@ -8,6 +8,8 @@
 #include <cstring>
 #include <ostream>
 
+const size_t string::npos = -1;
+
 string::string()
     : _str(new char[1]{ '\0' })
     , _size(0)
@@ -151,7 +153,7 @@ std::ostream& operator<<(std::ostream& out, const string& s)
     return out;
 }
 
-void string::insert(size_t pos, char ch)
+string& string::insert(size_t pos, char ch)
 {
     assert(pos <= _size);
     if (_size >= _capacity)
@@ -167,9 +169,11 @@ void string::insert(size_t pos, char ch)
     }
     _str[pos] = ch;
     ++_size;
+
+    return *this;
 }
 
-void string::insert(size_t pos, const char *str)
+string& string::insert(size_t pos, const char *str)
 {
     assert(pos <= _size);
 
@@ -190,4 +194,126 @@ void string::insert(size_t pos, const char *str)
         _str[pos + i] = str[i];
     }
     _size += len;
+    return *this;
+}
+
+string& string::erase(size_t pos, size_t len)
+{
+    assert(pos < _size);
+
+    if (len == npos || len >= (_size-pos))
+    {
+        _size = pos;
+        _str[_size] = '\0';
+    } else
+    {
+        size_t i = pos + len;
+        memmove(_str + pos,_str + i,_size + 1 - i);
+        _size -= len;
+    }
+    return *this;
+}
+
+void string::pop_back()
+{
+    assert(_size > 0);
+    --_size;
+    _str[_size] = '\0';
+}
+
+size_t string::find(char ch, size_t pos) const
+{
+    for (size_t i = pos;i < _size;i++)
+    {
+        if (_str[i] == ch)
+        {
+            return i;
+        }
+    }
+    return npos;
+}
+
+size_t string::find(const char *str, size_t pos) const
+{
+    const char* p1 = strstr(_str + pos,str);
+    if (p1 == nullptr)
+    {
+        return npos;
+    } else
+    {
+        return p1 - _str;
+    }
+}
+
+string string::substr(size_t pos, size_t len) const
+{
+    if (len == npos || len >= _size - pos)
+    {
+        len = _size - pos;
+    }
+
+    string ret;
+    ret.reserve(len);
+    for (size_t i = 0;i < len;i++)
+    {
+        ret += _str[pos + i];
+    }
+    return ret;
+}
+
+bool string::operator<(const string &s) const
+{
+    size_t it1 = 0,it2 = 0;
+    while (it1 < _size && it2 < s._size)
+    {
+        if (_str[it1] < s[it2])
+        {
+            return true;
+        }else if (_str[it1] > s[it2])
+        {
+            return false;
+        }else
+        {
+            ++it1;
+            ++it2;
+        }
+    }
+    return it2 < s._size;
+}
+
+bool string::operator<=(const string &s) const
+{
+    return *this < s || *this == s;
+}
+
+bool string::operator>(const string &s) const
+{
+    return !(*this <= s);
+}
+
+bool string::operator>=(const string &s) const
+{
+    return !(*this < s);
+}
+
+bool string::operator==(const string& s) const
+{
+    size_t it1 = 0,it2 = 0;
+    while (it1 < _size && it2 < s._size)
+    {
+        if (_str[it1] != s[it2])
+        {
+            return false;
+        }else
+        {
+            ++it1;
+            ++it2;
+        }
+    }
+    return it1 == _size && it2 == s._size;
+}
+
+bool string::operator!=(const string &s) const
+{
+    return !(*this == s);
 }

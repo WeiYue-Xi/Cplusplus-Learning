@@ -38,6 +38,8 @@ int main()
     s3.insert(3,"is ");
     std::cout << s3 << std::endl;
 
+    s2.erase(8,3);
+    std::cout << s2 << std::endl;
 
 
     return 0;
