@@ -1,7 +1,8 @@
 #include <cstddef>
 #include <iostream>
+#include <sstream>
 
-#include "string.h"
+#include "string/string.h"
 
 int main()
 {
@@ -40,6 +41,7 @@ int main()
 
     s2.erase(8,3);
     std::cout << s2 << std::endl;
+
 
 
     return 0;
