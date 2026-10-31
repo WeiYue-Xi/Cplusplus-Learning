@@ -1,6 +1,8 @@
 # 自定义 string：接口、实现与详细流程图
 
-本文依据 [string/string.h](string.h) 与 [string/string.cpp](string.cpp) 编写，分析的是全局命名空间中的自定义 `string`，不是 `std::string`。`main.cpp` 不参与本文分析，也不参与默认构建。本文单独维护，不向 `README.md` 追加内容。
+本文依据 [string.h](string.h) 与 [string.cpp](string.cpp) 编写，分析的是全局命名空间中的自定义 `string`，不是 `std::string`。本文只分析头文件、实现文件和构建配置，省略 `main.cpp` 中的演示逻辑。当前默认构建包含演示程序；只构建类实现可指定 `stringlib` 目标。本文单独维护，不向 `README.md` 追加内容。
+
+代码核对日期：2026-10-31。当前版本提供 `swap(string&)`，拷贝构造通过 `string tmp(s._str)` 和 `swap(tmp)` 实现；赋值运算仍按源对象的 `_size` 分配并复制。这两条路径对内嵌终止符的处理不同，详见第 4 节。
 
 流程图使用 Mermaid：在支持 Mermaid 的 Markdown 预览器中可直接查看。各图描述**当前实际实现**；发现的问题单独注明，不能将图中的执行路径理解为已经修复后的算法。
 
@@ -23,27 +25,32 @@
 
 ```text
 CPPString/
-├── CMakeLists.txt             # C++20 静态库目标 CPPString
-├── STRING_IMPLEMENTATION.md   # 本文
+├── CMakeLists.txt             # C++20：stringlib 静态库和 CPPString 演示程序
 ├── README.md                 # 原有学习文档
-├── main.cpp                  # 保留原文件，默认构建排除
+├── main.cpp                  # CPPString 可执行目标，本文省略其逻辑
 └── string/
     ├── string.h              # 类型、成员声明、getline 声明
-    └── string.cpp            # 成员及非成员函数定义
+    ├── string.cpp            # 成员及非成员函数定义
+    └── STRING_IMPLEMENTATION.md # 本文
 ```
 
-项目实际使用 `CMakeLists.txt`，没有名为 `Make.txt` 的配置文件，因此本次同步修改 `CMakeLists.txt`。目标由可执行程序改为静态库，不需要入口函数。
+项目实际使用 `CMakeLists.txt`，配置仅启用 C++，要求 C++20 并关闭编译器语言扩展。MSVC 使用 `/W4`；其他编译器使用 `-Wall -Wextra -Wpedantic`。当前有两个构建目标：
+
+| 目标 | 类型 | 源文件与依赖 |
+| --- | --- | --- |
+| `stringlib` | 静态库 | `string/string.cpp` 和 `string/string.h`，不包含入口函数 |
+| `CPPString` | 可执行程序 | 编译 `main.cpp` 并链接 `stringlib` |
 
 在 `CPPString` 目录运行：
 
 ```powershell
 cmake -S . -B build-string -G "MinGW Makefiles"
-cmake --build build-string --target CPPString
+cmake --build build-string --target stringlib
 ```
 
-需要 CMake 3.20 或以上版本及支持 C++20 的编译器。上述生成器用于 MinGW；使用其他工具链时按环境选择生成器。MinGW 构建产物为 `build-string/libCPPString.a`，不会生成或运行 `main.cpp` 对应的程序。已有 CLion 构建目录需要重新加载 CMake，旧目录中遗留的 exe 不是本次静态库构建产物。
+需要 CMake 3.20 或以上版本及支持 C++20 的编译器。上述生成器用于 MinGW；使用其他工具链时按环境选择生成器。只构建 `stringlib` 时，MinGW 产物为 `build-string/libstringlib.a`，不编译 `main.cpp`。若执行 `cmake --build build-string` 或指定 `--target CPPString`，则还会生成演示程序 `CPPString.exe`；构建命令本身不运行程序。已有 CLion 构建目录需要重新加载 CMake。
 
-其他 CMake 目标可通过 `target_link_libraries(调用方 PRIVATE CPPString)` 链接，并使用 `#include "string/string.h"`。公开包含路径为项目根目录，避免直接把 `string/` 加入搜索路径而让自定义 `string.h` 遮蔽系统同名头文件。
+其他 CMake 目标可通过 `target_link_libraries(调用方 PRIVATE stringlib)` 链接，并使用 `#include "string/string.h"`。公开包含路径为项目根目录，避免直接把 `string/` 加入搜索路径而让自定义 `string.h` 遮蔽系统同名头文件。
 
 ## 2. 对象模型与约定
 
@@ -56,12 +63,12 @@ cmake --build build-string --target CPPString
 | `iterator` | `char*`，可修改字符 |
 | `const_iterator` | `const char*`，只读访问字符 |
 
-在有效调用且未触发实现缺陷时，活对象维持：
+在有效调用且未触发实现缺陷时，完成构造的活对象维持：
 
 - `_size <= _capacity`。
 - 分配的数组包含 `_capacity + 1` 个字符位置。
 - `_str[_size] == '\0'`，即使空字符串也有一个终止符位置。
-- 不同对象各自拥有内存；拷贝对象不会共享 `_str`。
+- 不同对象各自拥有内存；拷贝对象不会共享 `_str`。`swap` 交换各自拥有的数组及配套长度、容量，不创建共享所有权。
 
 例如 `_size = 3`、`_capacity = 6`：
 
@@ -79,6 +86,8 @@ begin() -> 0             end() -> 3
 ```mermaid
 flowchart TD
     api["自定义 string 接口"] --> life["构造、拷贝、赋值、析构"]
+    life --> copySwap["拷贝构造：创建 C 字符串临时对象并 swap"]
+    copySwap --> exchange["swap 同步交换指针、长度、容量"]
     api --> access["访问、迭代、查找、比较"]
     api --> edit["追加、插入、删除、清空"]
     api --> io["流输入输出"]
@@ -98,8 +107,9 @@ flowchart TD
 | --- | --- | --- | --- |
 | `string()` | 创建空对象 | 分配一个终止符 | O(1) |
 | `explicit string(const char*)` | 从 C 字符串构造 | 不允许隐式转换；容量等于长度 | O(m) |
-| `string(const string&)` | 深拷贝 | 新容量等于源长度，不复制备用容量 | O(源长度) |
+| `string(const string&)` | 通过临时对象与交换完成深拷贝 | 复制源首个终止符前的内容；新长度和容量取 `strlen(s._str)` | O(首个终止符前的长度) |
 | `operator=(const string&)` | 返回 `*this` | 自赋值直接返回；先分配再释放 | O(源长度)，自赋值 O(1) |
+| `swap(string&)` | 交换两个对象的资源，无返回值 | 依次交换指针、长度、容量；无分配，允许自交换 | O(1) |
 | `~string()` | 释放数组 | 使用 `delete[]` | 除释放开销外 O(1) |
 | `c_str()` / `size()` | 只读地址 / 长度 | 没有公开 `capacity()` | O(1) |
 | `operator[](i)` 的两个重载 | 字符引用 | `assert(i < _size)` | O(1) |
@@ -114,7 +124,7 @@ flowchart TD
 | `clear()` | 清空但保留容量 | 设置首字符为终止符 | O(1) |
 | `find(ch, pos)` | 下标或 `npos` | `pos` 没有默认值；从指定位置扫描 | O(n-pos)，pos 大于等于长度时 O(1) |
 | `find(str, pos)` | 下标或 `npos` | `pos` 没有默认值；调用 `strstr`，要求 pos 不超过长度 | 取决于库的 `strstr` 实现 |
-| `substr(pos, len=npos)` | 独立的新对象 | 必须自行保证 `pos <= _size` | O(k)，未省略返回拷贝时仍为 O(k) |
+| `substr(pos, len=npos)` | 独立的新对象 | 必须自行保证 `pos <= _size`；返回时若发生拷贝，内嵌终止符可能使结果截断 | O(k)，未省略返回拷贝时仍为 O(k) |
 | `< <= > >= == !=` | 布尔值 | 按字符或由其他比较操作组合 | 最坏 O(min(两串长度)) |
 | `operator<<` | 返回输出流引用 | 按 C 字符串输出 | O(首个终止符前的字符数) |
 | `operator>>` | 返回输入流引用 | 空格或换行停止；有重复读取缺陷 | 正常追加规模下与读取量线性相关 |
@@ -124,7 +134,7 @@ flowchart TD
 
 ### 4.1 三种构造
 
-默认构造分配 `new char[1]{'\0'}`。C 字符串构造先以 `strlen` 求长度，再复制包括终止符在内的 `长度 + 1` 个字节。拷贝构造直接使用源对象长度，创建独立数组。
+默认构造分配 `new char[1]{'\0'}`。C 字符串构造先以 `strlen` 求长度，再复制包括终止符在内的 `长度 + 1` 个字节。实现文件中直接按源 `_size` 复制的旧拷贝构造已经注释，不参与编译；当前生效的拷贝构造先创建 `string tmp(s._str)`，再调用 `swap(tmp)`。
 
 ```mermaid
 flowchart TD
@@ -134,19 +144,57 @@ flowchart TD
     kind -->|"const char*"| length["strlen 求长度；size = 长度"]
     length --> cAlloc["capacity = size；分配 size + 1 字节"]
     cAlloc --> cCopy["memcpy 复制 size + 1 字节"]
-    kind -->|"const string&"| sAlloc["分配源 size + 1 字节"]
-    sAlloc --> sMeta["size 与 capacity 均设为源 size"]
-    sMeta --> sCopy["memcpy 复制源内容及终止符"]
+    kind -->|"const string&"| sInit["当前对象成员初值：nullptr、0、0"]
+    sInit --> sTemp["string tmp(s._str)：调用 C 字符串构造"]
+    sTemp --> sSwap["swap(tmp)：取得临时对象的新数组、长度、容量"]
+    sSwap --> sDestroy["tmp 析构：释放交换得到的 nullptr"]
     zero --> done(["构造完成，当前对象独占内存"])
     cCopy --> done
-    sCopy --> done
+    sDestroy --> done
 ```
 
 图省略了 `new[]` 抛出分配异常的出口；分配失败则构造不完成。类未声明移动构造和移动赋值；不要把拷贝行为解释为转移所有权。
 
-### 4.2 拷贝赋值
+拷贝构造没有委托给 `string()`，进入函数体前使用的是头文件中的成员默认初值：`_str = nullptr`、`_size = 0`、`_capacity = 0`。因此不会先给当前对象分配空数组；只有 `tmp` 通过 C 字符串构造分配新数组。交换之后，当前对象取得该新数组，`tmp` 接管空指针，析构时 `delete[] nullptr` 安全。
+
+普通文本中，`strlen(s._str) == s._size`，拷贝内容及长度与源相同，但不保留源备用容量。若源含有内嵌 `\0`，`tmp` 只复制第一个终止符之前的前缀，拷贝结果长度会缩短，源对象保持原状。当前拷贝构造并不完整保留所有由 `_size` 记录的字符。
+
+### 4.2 swap：三个成员一起交换
+
+```cpp
+void string::swap(string& s)
+{
+    std::swap(_str, s._str);
+    std::swap(_size, s._size);
+    std::swap(_capacity, s._capacity);
+}
+```
+
+```mermaid
+flowchart TD
+    start(["swap(s)"]) --> ptr["std::swap：交换 _str 指针"]
+    ptr --> length["std::swap：交换 _size"]
+    length --> capacity["std::swap：交换 _capacity"]
+    capacity --> done(["返回；两个对象互相接管原来的资源"])
+```
+
+这三个值描述同一块存储，必须配套交换。函数不复制字符、不分配内存，也不释放原数组，耗时与字符串长度无关；自交换最终保持原值。当前签名未声明 `noexcept`。
+
+```cpp
+string left("abc");
+string right("XY");
+left.swap(right);
+// left 的内容是 "XY"，size() == 2
+// right 的内容是 "abc"，size() == 3
+```
+
+交换前获取的字符指针、引用和迭代器仍指向原数组，但该数组现在由另一对象拥有；以后由新所有者的修改、扩容或析构决定其有效期。不能再把旧指针视为一定属于原对象。
+
+### 4.3 拷贝赋值
 
 赋值需要处理目标原有内存，所以不同于构造。先把新数据准备好，再释放旧内存，避免分配失败时破坏原对象。赋值后备用容量不会保留，而是变为源对象的长度。
+
+当前赋值运算未调用 `swap`，也未改为按值传参的复制交换写法。它复制源 `_size + 1` 个字节，因此与当前拷贝构造相比，赋值可以保留有效范围内的内嵌 `\0` 及其后字符。
 
 ```mermaid
 flowchart TD
@@ -161,7 +209,18 @@ flowchart TD
     replace --> done
 ```
 
-### 4.3 析构
+下面的代码展示两条复制路径的差别，示例省略入口函数：
+
+```cpp
+string source("abc");
+source[1] = '\0';       // size() 仍为 3，数组为 a、终止符、c、终止符
+string copied(source); // 通过 strlen 构造临时对象，copied.size() == 1
+string assigned;
+assigned = source;     // 按 _size 复制，assigned.size() == 3
+// copied == source 为 false；assigned == source 为 true
+```
+
+### 4.4 析构
 
 ```mermaid
 flowchart LR
@@ -186,7 +245,7 @@ flowchart TD
     check --> get(["返回 _str[i] 的引用；const 对象只读"])
 ```
 
-`assert` 是调试断言，定义 `NDEBUG` 后不会提供运行时边界保护。扩容、赋值或析构后，旧指针、引用和迭代器可能失效；插删即使未扩容，也会改变位置上的字符及尾后位置，应按需重新获取。修改有效字符时可以写入 `\0`，但这会使后续 C 字符串接口看到的长度与 `_size` 不一致。
+`assert` 是调试断言，定义 `NDEBUG` 后不会提供运行时边界保护。扩容、赋值或析构后，旧指针、引用和迭代器可能失效；插删即使未扩容，也会改变位置上的字符及尾后位置，应按需重新获取。`swap` 保留数组地址，但将数组的所有权交换给另一对象。修改有效字符时可以写入 `\0`，但这会使后续 C 字符串接口以及当前拷贝构造看到的长度与 `_size` 不一致。
 
 ## 6. 容量管理与尾部追加
 
@@ -376,6 +435,8 @@ flowchart TD
 
 `pos == size` 时返回空对象；`pos > size` 会让无符号减法 `_size - pos` 回绕，后续可能越界访问。当前代码没有抛出越界异常的逻辑。
 
+返回命名局部变量 `ret` 可以由编译器进行 NRVO（命名返回值优化），但并非保证省略拷贝。未省略时，类没有移动构造，会使用当前拷贝构造；若 `ret` 含有内嵌 `\0`，最终结果可能被截断到该终止符之前。普通不含内嵌终止符的文本不受这一区别影响。
+
 ## 10. 比较运算
 
 ### 10.1 小于：逐字符比较后判断前缀
@@ -466,6 +527,8 @@ flowchart TD
 
 | 位置 | 当前事实与影响 | 使用时的约束或后续修正方向 |
 | --- | --- | --- |
+| 拷贝构造 | 通过 `string tmp(s._str)` 使用 `strlen`，内嵌终止符之后的有效字符不被复制；与赋值语义不同 | 当前用于普通 C 字符串文本；若需完整值复制，后续应统一为按源长度复制 |
+| `swap` | 指针、长度、容量一起交换，数组地址保持，所有权属于另一对象 | 交换后按新所有者的生命周期判断旧指针有效期；当前没有 `noexcept` 声明 |
 | `operator>>`、`getline` | 条件和循环体各读取一次，导致隔字符丢失、漏检分隔符 | 后续应统一为每轮一次读取 |
 | `append`、字符串 `insert` | 未处理输入指向自身数组的情况；扩容可能使源指针悬空，插入搬移可能改写源数据；追加还可能触发重叠 `memcpy` | 当前传入独立、有效的 C 字符串；后续考虑输入快照或偏移处理 |
 | 字符串 `insert` | `pos + len - 1` 在 `pos == 0 && len == 0` 时无符号回绕，当前直接跳过搬移，通常表现为空操作 | 建议显式处理空输入、使用无需减 1 的循环边界 |
@@ -475,8 +538,8 @@ flowchart TD
 | `operator[]`、`insert`、`erase`、`pop_back` | 依赖断言；Release 下通常没有检查 | 必须遵守各接口前置条件，断言不是异常机制 |
 | 接收 `const char*` 的接口 | `strlen` / `strstr` 不处理空指针及缺少终止符的数组 | 参数必须非空、有效、终止正确 |
 | 容量计算 | `size + len`、`2 * capacity`、`n + 1` 没有溢出检查 | 超大输入尚无可靠保护，后续需要长度上限与溢出校验 |
-| 内嵌终止符 | 长度、遍历、比较可以覆盖内嵌 `\0`；输出、`strlen`、`strstr` 则按首个终止符截断 | 当前更适用于普通文本，接口不统一支持二进制内容 |
+| 内嵌终止符 | 长度、遍历、比较和赋值可以覆盖内嵌 `\0`；输出、`strlen`、`strstr` 和当前拷贝构造按首个终止符截断；`substr` 未省略返回拷贝时也可能截断 | 当前更适用于普通文本，接口不统一支持二进制内容 |
 | 字符编码 | 长度与位置按 `char` 字节计算 | UTF-8 汉字可能占多个字节，不能把下标当作汉字序号 |
 | 类型命名与特性 | 全局 `string` 容易与 `std::string` 混淆；没有移动操作、公开容量查询等接口 | 示例中使用明确类型限定；学习实现不等同于标准库完整功能 |
 
-本文的流程图用于理解实现、检查循环和边界；源码整理只改变文件位置及构建方式，未修复或扩展上述算法行为。
+本文的流程图用于理解当前生效的实现、检查循环和边界。本轮依据现有代码更新文档，保留现有算法行为；注释中的旧实现不作为当前执行路径。
