@@ -56,12 +56,14 @@ string& string::operator=(const string& s)
     if (this != &s)
     {
         // 先分配再释放，这样 new 抛异常时对象仍然完好
-        char* tmp = new char[s._size + 1];
-        std::memcpy(tmp, s._str, s._size + 1);
-        delete[] _str;
-        _str = tmp;
-        _size = s._size;
-        _capacity = s._size;
+        // char* tmp = new char[s._size + 1];
+        // std::memcpy(tmp, s._str, s._size + 1);
+        // delete[] _str;
+        // _str = tmp;
+        // _size = s._size;
+
+        string tmp(s);
+        swap(tmp);
     }
     return *this;
 }
