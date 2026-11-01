@@ -1,0 +1,40 @@
+# ---- IDE / 编辑器配置（个人环境，不入库）----
+.idea/
+.vscode/
+.vs/
+*.iml
+*.swp
+*~
+
+# ---- CMake 构建配置（本地生成，不入库）----
+# 本章的 CMakeLists.txt 只为本地 CLion 工程服务，内容随本机工具链变化，
+# 因此和构建缓存一起排除；需要构建时按 README 直接用编译器编译 main.cpp。
+CMakeLists.txt
+CMakeCache.txt
+CMakeFiles/
+cmake-build-*/
+cmake_install.cmake
+CTestTestfile.cmake
+CMakeUserPresets.json
+*.cmake
+
+# ---- 编译产物 ----
+build/
+out/
+*.exe
+*.obj
+*.o
+*.a
+*.lib
+*.dll
+*.pdb
+*.ilk
+*.idb
+*.ninja
+*.ninja_deps
+*.ninja_log
+
+# ---- 操作系统 / 杂项 ----
+Thumbs.db
+desktop.ini
+.DS_Store
