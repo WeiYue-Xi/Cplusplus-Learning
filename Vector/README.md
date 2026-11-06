@@ -457,20 +457,249 @@ students.push_back(std::make_unique<Student>("王五", 20));
 
 ## 11. 二维 vector 与特殊类型
 
-### 11.1 二维容器
+### 11.1 二维容器的结构
+
+`std::vector<std::vector<int>>` 不是“二维数组”，而是**元素类型为 `vector<int>` 的一维容器**。用一个只保留核心成员的简化模型就能看清它的形状：
 
 ```cpp
-std::vector<std::vector<int>> matrix(3, std::vector<int>(4, 0));
-matrix[1][2] = 7; // 第 2 行、第 3 列
-
-std::vector<std::vector<int>> ragged{{1, 2}, {3}, {4, 5, 6}};
+template<class T>
+class vector
+{
+private:
+    T* _a;                  // 指向一串 T
+    std::size_t _size;
+    std::size_t _capacity;
+};
 ```
 
-外层连续存放的是各个内层 `vector` 对象，每一行分别管理自己的元素存储。**各行的整数不保证处于同一块连续空间**，行的长度也可以不同。访问前必须分别满足行下标和列下标的边界。
+`T` 是类型占位符，模板本身不产生任何代码。写下 `std::vector<int> v;` 时，编译器才把 `T` 替换为 `int`，实例化出一个真正的类；写成 `std::vector<std::vector<int>>` 时，`T` 被替换为 `vector<int>`，得到的是另一个同样独立的类：
 
-若需要整体连续的二维数值存储，可使用一维 `vector`，按 `row * cols + col` 计算下标；先保证行列合法，并确保总大小计算不会溢出。
+| 模板成员 | `vector<int>` | `vector<vector<int>>` |
+| --- | --- | --- |
+| `T` 实际是 | `int` | `vector<int>` |
+| `T* _a` 实际是 | `int*` | `vector<int>*` |
+| 一个元素是什么 | 一个 `int` | 一个完整的 `vector<int>` 对象 |
+| 单个元素大小 | 4 字节 | 24 字节（64 位 libstdc++） |
+| `_a` 那块的存储 | 一串 `int` | 一串“行对象” |
 
-### 11.2 vector<bool>
+关键在 `T* _a` 的语义始终是“指向一串 `T`”，**它本身永远是一维的**。当 `T` 换成 `vector<int>`，它指向的是内层容器对象，而不是 `int`。`sizeof(vector<int>)` 就是三个机器字（64 位 libstdc++ 为 24 字节，MSVC 用 4 个指针共 32 字节），因此外层的 `_a` 中每隔 24 字节就是一个完整的行对象。
+
+两个版本的布局差别：
+
+```text
+vector<int> v
+   [ _a ][ _size ][ _capacity ] ──→ [ 10 ][ 20 ][ 30 ]      一整块连续内存
+
+vector<vector<int>> m
+   [ _a ][ _size ][ _capacity ] ──→ [ 行0 ][ 行1 ][ 行2 ]   外层连续
+                                        │      │      │
+                                        ↓      ↓      ↓
+                                    [1 2 3][4 5 6][7 8 9]  三块独立内存
+```
+
+由此可以确定以下几点：
+
+- 外层连续存放的是各个内层 `vector` 对象，每一行分别管理自己的元素存储。
+- **各行的整数不保证处于同一块连续空间**，行的长度也可以不同。
+- 访问前必须分别满足行下标和列下标的边界。
+
+`matrix[1][2]` 等价于 `matrix._a[1]._a[2]`：第一次按 24 字节步长在外层数组中定位到第 1 个行对象，第二次读该行对象自己的 `_a` 再偏移两个元素。这是两次解引用、两个互不相关的堆块。
+
+顺便说明“特化”与“实例化”的区别：若要把上表中的某个结果手写进源码，必须使用全特化语法 `template<> class vector<int> { ... };`，那是放弃模板、另写一份实现，而不是实例化。标准库对 `bool` 正是这样处理的（见 11.9）。
+
+### 11.2 常用创建方式
+
+```cpp
+// 1. 空容器，逐行追加：行数由运行期决定
+std::vector<std::vector<int>> a;
+a.push_back({1, 2, 3});
+
+// 2. 一次建成 rows × cols，全部为 0
+std::vector<std::vector<int>> b(3, std::vector<int>(4, 0));
+
+// 3. 先建 rows 个空行，再逐行确定长度
+std::vector<std::vector<int>> c(3);
+c[0].assign(2, 0);
+c[1].assign(5, 1);
+
+// 4. 初始化列表：各行长度可以不同
+std::vector<std::vector<int>> d{{1, 2}, {3}, {4, 5, 6}};
+
+// 5. 把已有容器重置为固定形状
+d.assign(3, std::vector<int>(4, 0));
+```
+
+| 写法 | 结果 | 适用场景 |
+| --- | --- | --- |
+| 空容器 + `push_back` | 0 行，逐行增加 | 行数运行时才知道 |
+| `m(rows, vector<int>(cols, init))` | `rows × cols` 的规则矩阵 | 尺寸已知 |
+| `m(rows)` 再逐行 `assign` / `resize` | `rows` 个空行 | 各行长度不同 |
+| 初始化列表 | 行长度任意 | 字面量、小数据 |
+| `assign(rows, vector<int>(cols, init))` | 重置为固定形状 | 复用已有变量 |
+
+第二行写法有两处容易误解：
+
+- 第二个参数是**按值复制**的模板行。外层存放的是 `rows` 个各自独立的 `vector<int>`，改 `b[0][0]` 不影响 `b[1][0]`。
+- 复制 `rows` 行大约需要 `rows + 1` 次堆分配（模板行一次，每行各一次；具体次数取决于实现），行数很大时这部分开销不可忽略。
+
+`m(3)` 与 `m(3, std::vector<int>(4))` 差别极大：前者是 3 个**空行**，`m[0][0]` 直接越界；后者才是 3 行 4 列。
+
+### 11.3 尺寸与访问
+
+```cpp
+std::vector<std::vector<int>> m(3, std::vector<int>(4, 0));
+std::size_t rows = m.size();     // 行数：3
+std::size_t cols = m[0].size();  // 4，仅当所有行等长时才代表“列数”
+```
+
+二维 `vector` 没有统一的列数接口，规则矩阵要靠约定（通常取 `m[0].size()`），不规则矩阵只能按行取 `m[i].size()`。
+
+- `m[i][j]` 两层都不检查边界，任一层越界都是未定义行为。
+- `m.at(i)` 只检查行下标；要两层都检查必须写 `m.at(i).at(j)`。
+- 空容器 `m[0]` 已经越界，不能用 `m[0].empty()` 判断“有没有列”，应先判断 `m.empty()`。
+- 行下标合法而列下标超出行长度时，读到的是该行缓冲区之外的位置，不会自动补 0。
+
+### 11.4 遍历
+
+```cpp
+// 下标遍历：内层条件必须用 m[i].size()
+for (std::size_t i = 0; i < m.size(); ++i) {
+    for (std::size_t j = 0; j < m[i].size(); ++j) {
+        std::cout << m[i][j] << ' ';
+    }
+    std::cout << '\n';
+}
+
+// 只读：引用绑定每一行，不复制
+for (const auto& row : m) {
+    for (int value : row) {
+        std::cout << value << ' ';
+    }
+}
+
+// 修改元素：两层都用引用
+for (auto& row : m) {
+    for (auto& value : row) {
+        value *= 2;
+    }
+}
+```
+
+`for (auto row : m)` 中的 `row` 是 `vector<int>` 的副本，每次迭代会复制一整行元素。只读时应写 `const auto&`。
+
+### 11.5 按行与按列扩充
+
+```cpp
+std::vector<std::vector<int>> m;
+
+m.push_back({1, 2, 3});   // 追加一整行
+m.emplace_back(4, 0);     // 原地构造一行 4 个 0
+m[0].push_back(9);        // 只让第 0 行变长，矩阵从此不规则
+
+std::vector<std::vector<int>> grid;
+grid.reserve(100);        // 只预留外层（行对象），不预留行内元素
+```
+
+- `reserve` 在二维场景只作用于外层；要为行内元素预留，需对每行单独 `reserve`。
+- 外层 `push_back` 扩容时搬迁的是行对象，代价与**行数**成正比，而不是与元素总数成正比。
+- 参数直接决定构造出什么：`emplace_back()` 追加一个空行，`emplace_back(4)` 追加的是“4 个值为 0 的元素”，不是“一个值为 4 的元素”。
+- 逐行 `push_back` 会让各行容量互不相同；后续按列访问前应先确认所有行的长度。
+
+### 11.6 内存布局与性能
+
+二维 `vector` 的每次访问要经过两级间接寻址，跨行时缓存局部性明显弱于连续内存。若数据是规则的数值矩阵，可以用一维 `vector` 扁平化：
+
+```cpp
+std::size_t rows = 3, cols = 4;
+std::vector<int> flat(rows * cols, 0);
+
+auto at = [&](std::size_t r, std::size_t c) -> int& {
+    return flat[r * cols + c];
+};
+
+at(1, 2) = 7;
+```
+
+- 下标用 `std::size_t` 计算，并先校验 `r < rows && c < cols`，避免乘法溢出和越界。
+- 扁平化版本整体连续，`flat.data()` 可以直接交给要求连续缓冲区的接口；代价是没有 `flat[r][c]` 语法，需要自己封装访问函数。
+- 行对象本身也有成本：`vector<vector<char>>` 若存 100 万个长度为 1 的行，每个行对象 24 字节，仅外层就约 24 MB，而数据只有 1 MB。
+- C++23 的 `std::mdspan` 能为连续存储提供多维视图，本文以 C++20 为基准，不展开。
+
+### 11.7 二维场景下的失效规则
+
+第 8 章的表针对单个容器；二维时有两层，需要分开看：
+
+| 操作 | 失效范围 |
+| --- | --- |
+| 外层 `push_back` / `insert` 且发生扩容 | 所有行对象的地址、外层迭代器、已取得的 `m[i]` 引用失效 |
+| 外层尾部插入但未扩容 | 原有行对象仍有效，旧外层 `end()` 失效 |
+| 外层中间插入且未扩容 | 插入位置之前的行有效，其后的行对象和旧 `end()` 失效 |
+| `m[i].push_back(...)` | 仅该行的元素访问位置和该行旧 `end()` 失效，其他行不受影响 |
+| `m[i].clear()` | 该行元素失效，行对象本身仍在 |
+| `m.clear()` | 全部行对象析构，外层容量不变 |
+
+```cpp
+std::vector<std::vector<int>> m{{1, 2}, {3, 4}};
+const int& first = m[0][0];
+m.push_back({5, 6});   // 外层可能扩容，m[0] 这个行对象被搬到新位置
+// first 通常仍指向原来那 2 个 int（行对象是被移动构造过去的），
+// 但这是实现层面的结果，不应依赖；需要时重新写 m[0][0]
+```
+
+- 外层扩容搬的是行对象；行对象被移动构造时通常直接接管原有缓冲区，因此元素地址往往不变。但标准不保证这一点，稳妥做法是重新通过 `m[i]` 获取。
+- `&m[0][0]` 只能当作第一行的起始地址，加偏移无法跨到其他行。
+
+### 11.8 典型用法
+
+**邻接表**：天然支持每行度数不同，这是它相对矩形数组的主要优势。
+
+```cpp
+int n = 5;
+std::vector<std::vector<int>> adj(n);   // n 个空行
+adj[0].push_back(1);
+adj[1].push_back(0);
+```
+
+**字符网格**：
+
+```cpp
+std::vector<std::string> grid{"....", ".##.", "...."};
+grid[1][2] = '.';
+```
+
+用 `vector<string>` 存字符网格时，外层连续存放的是 `std::string` 对象；短字符串可能直接存在对象内部（SSO），长字符串才单独分配，因此同样不能假定整体连续。
+
+**矩阵转置**：先按列数建好目标，再逐元素填写。
+
+```cpp
+std::vector<std::vector<int>> transpose(const std::vector<std::vector<int>>& m)
+{
+    if (m.empty()) {
+        return {};
+    }
+    std::vector<std::vector<int>> t(m[0].size(), std::vector<int>(m.size()));
+    for (std::size_t i = 0; i < m.size(); ++i) {
+        for (std::size_t j = 0; j < m[i].size(); ++j) {
+            t[j][i] = m[i][j];
+        }
+    }
+    return t;
+}
+```
+
+上面的实现假定矩阵规则；对不规则矩阵需要先按最大列数确定尺寸，或改为逐行追加。
+
+**动态规划表**：建议一次成型（`m(rows, vector<int>(cols, init))`），而不是逐行 `push_back`，避免外层反复扩容。
+
+三种存法的对比：
+
+| 方式 | 内存连续 | 行长可变 | 随机访问 | 传参 |
+| --- | --- | --- | --- | --- |
+| `int a[3][4]` | 是 | 否 | `a[i][j]`，一次地址计算 | 退化为指针，需另传列数 |
+| `vector<int>` 扁平化 | 是 | 否 | 需 `r * cols + c` | `const vector<int>&` |
+| `vector<vector<int>>` | 外层连续，行内分散 | 是 | `m[i][j]`，两次解引用 | `const vector<vector<int>>&` |
+
+### 11.9 vector<bool>
 
 `std::vector<bool>` 是特殊化版本，通常按位压缩保存布尔值，其元素访问返回代理对象，不能按普通 `bool&` 理解，也不能假定提供连续的 `bool` 数组。
 
@@ -489,6 +718,7 @@ std::vector<std::vector<int>> ragged{{1, 2}, {3}, {4, 5, 6}};
 | 在位置 `k` 插入 `m` 个元素 | 无扩容时 O(m + n - k)，扩容时 O(n + m) |
 | 删除位置 `k` 的一个元素 | O(n - k) |
 | 遍历、复制、清空 | O(n) |
+| 遍历 `r × c` 的规则二维矩阵 | O(r × c) 次两级寻址 |
 | `reserve` | 不重新分配时 O(1)，重新分配时 O(n) |
 | `std::sort` | O(n log n) 次比较 |
 
@@ -584,6 +814,10 @@ g++ -std=c++20 -Wall -Wextra -pedantic vector_demo.cpp -o vector_demo.exe
 | `std::remove()` 会减少 `size()` | 还需要调用容器的 `erase` |
 | 容量增长倍数固定 | 标准不规定具体倍数 |
 | `vector` 自动释放所有指针指向的对象 | 裸指针元素不表达对象所有权 |
+| `vector<vector<int>>` 是连续的二维数组 | 只有外层的行对象连续，每行数据各自分配 |
+| `m[0].size()` 一定是列数 | 行长度可以不同，需按行取 `size()` |
+| `m(3)` 就已经是 3 行可用的矩阵 | 它是 3 个空行，`m[0][0]` 越界 |
+| `&m[0][0] + r * cols + c` 可定位任意元素 | 行与行不连续，必须经外层数组跳转 |
 
 自测问题：
 
@@ -592,6 +826,9 @@ g++ -std=c++20 -Wall -Wextra -pedantic vector_demo.cpp -o vector_demo.exe
 3. 为什么 `push_back` 没有扩容，旧 `end()` 仍然失效？
 4. 中间删除一个元素后，删除位置之前与之后的迭代器分别怎样变化？
 5. 为什么批量删除偶数时，`std::erase_if` 通常比循环逐个 `erase` 更合适？
+6. `vector<vector<int>> m(3)` 与 `vector<vector<int>> m(3, vector<int>(4))` 的元素分别是什么？
+7. 为什么不能用 `&m[0][0] + r * cols + c` 访问第 `r` 行第 `c` 列？
+8. `m.emplace_back(4)` 追加的是什么？
 
 参考答案：
 
@@ -600,6 +837,9 @@ g++ -std=c++20 -Wall -Wextra -pedantic vector_demo.cpp -o vector_demo.exe
 3. 尾后位置发生改变，旧 `end()` 不再是合法的旧遍历终点。
 4. 之前仍有效，删除位置及之后（含旧尾后位置）失效。
 5. 前者可一次线性整理并删除尾部，后者可能反复移动后续元素。
+6. 前者是 3 个空行（`m[0].size()` 为 0，访问 `m[0][0]` 越界）；后者是 3 行 × 4 列、全部为 0 的矩阵。
+7. 每行数据是独立分配的堆块，行与行之间没有地址连续性；必须先由外层 `_a` 取到行对象，再由该对象的 `_a` 定位元素。
+8. 一行 4 个值为 0 的元素（等价于构造 `vector<int>(4)`），而不是一个值为 4 的元素。
 
 ## 15. 参考资料
 
