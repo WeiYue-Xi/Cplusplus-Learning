@@ -3,6 +3,13 @@
 #include <vector>
 #include <algorithm>
 
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX        // 避免 windows.h 定义 min/max 宏，和 <algorithm> 打架
+#endif
+#include <windows.h>
+#endif
+
 #include "example/vector.h"
 
 // 把容器的当前状态打印出来，方便对照每次操作的结果。
@@ -40,6 +47,13 @@ void print(const char* tag, const std::vector<int>& v)
 
 int main()
 {
+#ifdef _WIN32
+    // Windows 控制台默认按 GBK(936) 解码输出，而源码里的中文字面量是 UTF-8，
+    // 不切一下代码页就会显示成「鏋勯€犱笌...」这种乱码。
+    // 这里把输出代码页切到 UTF-8，和源码、可执行文件里的字节保持一致。
+    SetConsoleOutputCP(CP_UTF8);
+#endif
+
     // ---------- 1. 构造 ----------
     std::cout << "== 1. 构造与基本状态 ==\n";
     XiYue::vector<int> v;
