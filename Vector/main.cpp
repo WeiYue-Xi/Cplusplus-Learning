@@ -1,13 +1,14 @@
 #include <iostream>
 #include <string>
+#include <vector>
 #include <algorithm>
 
-#include "example/Vector.h"
+#include "example/vector.h"
 
-// °ÑÈİÆ÷µÄµ±Ç°×´Ì¬´òÓ¡³öÀ´£¬·½±ã¶ÔÕÕÃ¿´Î²Ù×÷µÄ½á¹û¡£
-// ²ÎÊıÓÃ const ÒıÓÃ£º¼ÈÄÜ¶Á£¬ÓÖ²»ÓÃ¸´ÖÆÕû¸öÈİÆ÷¡£
+// æŠŠå®¹å™¨çš„å½“å‰çŠ¶æ€æ‰“å°å‡ºæ¥ï¼Œæ–¹ä¾¿å¯¹ç…§æ¯æ¬¡æ“ä½œçš„ç»“æœã€‚
+// å‚æ•°ç”¨ const å¼•ç”¨ï¼šæ—¢èƒ½è¯»ï¼Œåˆä¸ç”¨å¤åˆ¶æ•´ä¸ªå®¹å™¨ã€‚
 template<class T>
-void print(const char* tag, const Vector<T>& v)
+void print(const char* tag, const XiYue::vector<T>& v)
 {
     std::cout << tag << "  size=" << v.size()
               << " cap=" << v.capacity() << "  [";
@@ -22,18 +23,33 @@ void print(const char* tag, const Vector<T>& v)
     std::cout << "]\n";
 }
 
+// åŒåé‡è½½ï¼šè®©ä¸‹é¢çš„ std::vector å¯¹ç…§å®éªŒä¹Ÿèƒ½å¤ç”¨è¿™æ®µæ‰“å°é€»è¾‘
+void print(const char* tag, const std::vector<int>& v)
+{
+    std::cout << tag << "  size=" << v.size() << "  [";
+    for (auto it = v.begin(); it != v.end(); ++it)
+    {
+        if (it != v.begin())
+        {
+            std::cout << ", ";
+        }
+        std::cout << *it;
+    }
+    std::cout << "]\n";
+}
+
 int main()
 {
-    // ---------- 1. ¹¹Ôì ----------
-    std::cout << "== 1. ¹¹ÔìÓë»ù±¾×´Ì¬ ==\n";
-    Vector<int> v;
+    // ---------- 1. æ„é€  ----------
+    std::cout << "== 1. æ„é€ ä¸åŸºæœ¬çŠ¶æ€ ==\n";
+    XiYue::vector<int> v;
     std::cout << "size=" << v.size()
               << " capacity=" << v.capacity()
               << " empty=" << v.empty() << '\n';
 
     // ---------- 2. push_back ----------
-    // ³õÊ¼ÈİÁ¿Îª 0£¬µÚÒ»´Î²åÈë¸ø 4£¬Ö®ºóÃ¿´Î·­±¶£º4 -> 8 -> 16
-    std::cout << "\n== 2. push_back ÓëÀ©Èİ ==\n";
+    // åˆå§‹å®¹é‡ä¸º 0ï¼Œç¬¬ä¸€æ¬¡æ’å…¥ç»™ 4ï¼Œä¹‹åæ¯æ¬¡ç¿»å€ï¼š4 -> 8 -> 16
+    std::cout << "\n== 2. push_back ä¸æ‰©å®¹ ==\n";
     for (int i = 1; i <= 5; ++i)
     {
         v.push_back(i * 10);
@@ -43,21 +59,21 @@ int main()
     print("v", v);
 
     // ---------- 3. operator[] ----------
-    // ·Ç const °æ±¾·µ»Ø T&£¬¿ÉÒÔ¾ÍµØĞŞ¸Ä£»const °æ±¾·µ»Ø const T&
-    std::cout << "\n== 3. ÏÂ±ê·ÃÎÊ ==\n";
+    // é const ç‰ˆæœ¬è¿”å› T&ï¼Œå¯ä»¥å°±åœ°ä¿®æ”¹ï¼›const ç‰ˆæœ¬è¿”å› const T&
+    std::cout << "\n== 3. ä¸‹æ ‡è®¿é—® ==\n";
     v[0] = 11;
-    const Vector<int>& cv = v;
+    const XiYue::vector<int>& cv = v;
     std::cout << "v[0]=" << v[0] << " cv[0]=" << cv[0] << " v[4]=" << v[4] << '\n';
 
-    // ---------- 4. µü´úÆ÷ ----------
-    // µü´úÆ÷¾ÍÊÇ T*£¬ËùÒÔÖ§³Ö ++¡¢*¡¢!= ÕâĞ©Ö¸Õë²Ù×÷
-    std::cout << "\n== 4. ±éÀú ==\n";
-    std::cout << "µü´úÆ÷: ";
-    for (Vector<int>::iterator it = v.begin(); it != v.end(); ++it)
+    // ---------- 4. è¿­ä»£å™¨ ----------
+    // è¿­ä»£å™¨å°±æ˜¯ T*ï¼Œæ‰€ä»¥æ”¯æŒ ++ã€*ã€!= è¿™äº›æŒ‡é’ˆæ“ä½œ
+    std::cout << "\n== 4. éå† ==\n";
+    std::cout << "è¿­ä»£å™¨: ";
+    for (XiYue::vector<int>::iterator it = v.begin(); it != v.end(); ++it)
     {
         std::cout << *it << ' ';
     }
-    std::cout << "\n·¶Î§for: ";
+    std::cout << "\nèŒƒå›´for: ";
     for (int x : v)
     {
         std::cout << x << ' ';
@@ -65,34 +81,34 @@ int main()
     std::cout << '\n';
 
     // ---------- 5. insert ----------
-    // ·µ»ØÖ¸ÏòĞÂÔªËØÎ»ÖÃµÄµü´úÆ÷£»Î²²¿²åÈëµÈ¼ÛÓÚ push_back
+    // è¿”å›æŒ‡å‘æ–°å…ƒç´ ä½ç½®çš„è¿­ä»£å™¨ï¼›å°¾éƒ¨æ’å…¥ç­‰ä»·äº push_back
     std::cout << "\n== 5. insert ==\n";
     auto it1 = v.insert(v.begin(), 0);
-    std::cout << "Í·²¿²å 0   -> ·µ»ØÎ»ÖÃµÄÖµ " << *it1 << '\n';
+    std::cout << "å¤´éƒ¨æ’ 0   -> è¿”å›ä½ç½®çš„å€¼ " << *it1 << '\n';
 
     auto it2 = v.insert(v.begin() + 3, 33);
-    std::cout << "ÖĞ¼ä²å 33  -> ·µ»ØÎ»ÖÃµÄÖµ " << *it2 << '\n';
+    std::cout << "ä¸­é—´æ’ 33  -> è¿”å›ä½ç½®çš„å€¼ " << *it2 << '\n';
 
     auto it3 = v.insert(v.end(), 99);
-    std::cout << "Î²²¿²å 99  -> ·µ»ØÎ»ÖÃµÄÖµ " << *it3 << '\n';
+    std::cout << "å°¾éƒ¨æ’ 99  -> è¿”å›ä½ç½®çš„å€¼ " << *it3 << '\n';
 
-    v.insert(v.end(), 2, 7);            // Ò»´Î²å 2 ¸ö 7
-    v.insert(v.begin() + 1, 0, 123);    // n == 0£ºÊ²Ã´¶¼²»²å
-    print("insertºó", v);
+    v.insert(v.end(), 2, 7);            // ä¸€æ¬¡æ’ 2 ä¸ª 7
+    v.insert(v.begin() + 1, 0, 123);    // n == 0ï¼šä»€ä¹ˆéƒ½ä¸æ’
+    print("insertå", v);
 
     // ---------- 6. erase ----------
     std::cout << "\n== 6. erase ==\n";
-    auto e1 = v.erase(v.begin());       // É¾Í·£¬·µ»ØĞÂÊ×ÔªËØµÄÎ»ÖÃ
-    std::cout << "É¾³ıÊ×ÔªËØºó£¬·µ»ØÖµÖ¸Ïò " << *e1 << '\n';
+    auto e1 = v.erase(v.begin());       // åˆ å¤´ï¼Œè¿”å›æ–°é¦–å…ƒç´ çš„ä½ç½®
+    std::cout << "åˆ é™¤é¦–å…ƒç´ åï¼Œè¿”å›å€¼æŒ‡å‘ " << *e1 << '\n';
 
-    auto e2 = v.erase(v.end() - 1);     // É¾Î²£¬·µ»ØĞÂµÄ end()
-    std::cout << "É¾³ıÎ²ÔªËØºó£¬·µ»ØÖµ == end() : " << (e2 == v.end()) << '\n';
+    auto e2 = v.erase(v.end() - 1);     // åˆ å°¾ï¼Œè¿”å›æ–°çš„ end()
+    std::cout << "åˆ é™¤å°¾å…ƒç´ åï¼Œè¿”å›å€¼ == end() : " << (e2 == v.end()) << '\n';
 
-    v.erase(v.begin() + 1, v.begin() + 3);   // É¾°ë¿ªÇø¼ä [1, 3)
-    print("eraseºó", v);
+    v.erase(v.begin() + 1, v.begin() + 3);   // åˆ åŠå¼€åŒºé—´ [1, 3)
+    print("eraseå", v);
 
     // ---------- 7. pop_back ----------
-    // ÈİÁ¿²»»á¸ú×ÅËõ£¬±ãÓÚ¼ÌĞø¸´ÓÃÕâ¿é¿Õ¼ä
+    // å®¹é‡ä¸ä¼šè·Ÿç€ç¼©ï¼Œä¾¿äºç»§ç»­å¤ç”¨è¿™å—ç©ºé—´
     std::cout << "\n== 7. pop_back ==\n";
     while (!v.empty())
     {
@@ -103,10 +119,10 @@ int main()
     }
     std::cout << "empty=" << v.empty() << " size=" << v.size() << '\n';
 
-    // ---------- 8. »»³É´ø×ÊÔ´µÄÀàĞÍ ----------
-    // Í¬Ò»¸öÄ£°å£¬T »»³É std::string ºó×Ô¶¯Éú³ÉÁíÒ»·İ´úÂë
-    std::cout << "\n== 8. Vector<std::string> ==\n";
-    Vector<std::string> s;
+    // ---------- 8. æ¢æˆå¸¦èµ„æºçš„ç±»å‹ ----------
+    // åŒä¸€ä¸ªæ¨¡æ¿ï¼ŒT æ¢æˆ std::string åè‡ªåŠ¨ç”Ÿæˆå¦ä¸€ä»½ä»£ç 
+    std::cout << "\n== 8. XiYue::vector<std::string> ==\n";
+    XiYue::vector<std::string> s;
     s.push_back("alpha");
     s.push_back("gamma");
     s.insert(s.begin() + 1, "beta");
@@ -117,7 +133,32 @@ int main()
     s.pop_back();
     print("s", s);
 
-    
+    // ---------- 9. ä¸ std::vector å¯¹ç…§ ----------
+    std::cout << "\n== 9. std::vector åˆ é™¤å¶æ•° ==\n";
+    std::vector<int> v1;
+    v1.push_back(1);
+    v1.push_back(2);
+    v1.push_back(3);
+    v1.push_back(4);
+    v1.push_back(4);
+    v1.push_back(5);
+    v1.push_back(4);
+
+    auto it = v1.begin();
+    while (it != v1.end())
+    {
+        if (*it % 2 == 0)
+        {
+            //eraseä¹Ÿä¼šè¿­ä»£å™¨å¤±æ•ˆï¼Œå¤±æ•ˆçš„è¿­ä»£å™¨å°±ä¸èƒ½å†ä½¿ç”¨äº†
+            v1.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+
+    print("v1", v1);
 
     return 0;
 }

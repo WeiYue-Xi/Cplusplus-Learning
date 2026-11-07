@@ -2,14 +2,17 @@
 // Created by HY on 2026/11/1.
 //
 
-#ifndef VECTOR_VECTOR_H
-#define VECTOR_VECTOR_H
+#ifndef XIYUE_VECTOR_H
+#define XIYUE_VECTOR_H
 #include <iterator>
 #include <assert.h>
 #include <cstring>
 
+namespace XiYue
+{
+
 template<class T>
-class Vector
+class vector
 {
 private:
     // 三指针：[_start, _finish) 是已有元素，[_finish, _endofstorage) 是空余空间
@@ -22,7 +25,7 @@ public:
     typedef const T* const_iterator;
 
     // 构造函数：三个指针都指向空，得到一个 size()==0、capacity()==0 的空容器
-    Vector()
+    vector()
             : _start(nullptr), _finish(nullptr), _endofstorage(nullptr)
     {
     }
@@ -211,10 +214,12 @@ public:
         return _start[i];
     }
 
-    ~Vector()
+    ~vector()
     {
         delete[] _start;
     }
 };
 
-#endif //VECTOR_VECTOR_H
+} // namespace XiYue
+
+#endif //XIYUE_VECTOR_H
