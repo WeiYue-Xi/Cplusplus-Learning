@@ -7,6 +7,9 @@
 #include <iterator>
 #include <assert.h>
 #include <cstring>
+#include <initializer_list>
+#include <type_traits>
+#include <utility>
 
 namespace XiYue
 {
@@ -16,18 +19,124 @@ class vector
 {
 private:
     // 三指针：[_start, _finish) 是已有元素，[_finish, _endofstorage) 是空余空间
-    // 成员不再就地给初值，改由构造函数初始化列表负责（否则是随机值，size() 一算就崩）
-    T* _start;
-    T* _finish;
-    T* _endofstorage;
+    // 就地给 nullptr：这样 = default 生成的默认构造函数也是安全的，
+    // 不会留下随机值（否则 size() 一算就崩）
+    T* _start = nullptr;
+    T* _finish = nullptr;
+    T* _endofstorage = nullptr;
 public:
     typedef T* iterator;
     typedef const T* const_iterator;
 
     // 构造函数：三个指针都指向空，得到一个 size()==0、capacity()==0 的空容器
-    vector()
-            : _start(nullptr), _finish(nullptr), _endofstorage(nullptr)
+    // vector()
+    // {
+    // }
+
+    //强制编译器生成默认构造
+    vector() = default;
+
+    // 多参数构造：造 n 个 value 的副本。
+    // 标准库里这是两个重载（vector(n) 与 vector(n, value)），这里用默认参数合成一个，
+    // 与 resize 的做法一致：不写第二个参数就用 T() 填充。
+    // explicit 是为了挡住 vector<int> v = 5; 这种隐式转换（标准库的 vector(n) 也是 explicit）。
+    explicit vector(size_t n, const T& value = T())
     {
+        // 一次分够 n 个槽位，下面 push_back 时不会触发扩容
+        reserve(n);
+        for (size_t i = 0; i < n; ++i)
+        {
+            push_back(value);
+        }
+    }
+
+    // 初始化列表构造：把 {} 里给定的值逐个放进去。
+    // 有了它，{} 会优先匹配这里，于是 vector<int> v{5} 是"1 个元素 5"，
+    // 而不是走上面的填充构造变成"5 个 0"；圆括号 (5) 仍然走填充构造。
+    // 不能加 explicit：否则 vector<int> v = {1, 2, 3}; 这种写法就用不了。
+    vector(std::initializer_list<T> init)
+    {
+        reserve(init.size());
+        for (const auto& e : init)
+        {
+            push_back(e);
+        }
+    }
+
+    // 迭代器区间构造：[first, last) 左闭右开，逐个复制过来。
+    // 写成模板是为了接受任意迭代器：T*、const T*、别人的 iterator 都行。
+    // 第二个模板参数的作用是"把整数类型排除掉"：不加它的话，vector<int> v(5, 10)
+    // 会优先匹配这里（int, int 完全匹配，比 int 转 size_t 更好），于是把 5 当成
+    // 迭代器去解引用。标准库用 C++20 的 concepts 做同一件事：
+    //     template<std::input_iterator InputIt> vector(InputIt, InputIt);
+    template<class InputIt,
+             class = typename std::enable_if<!std::is_integral<InputIt>::value>::type>
+    vector(InputIt first, InputIt last)
+    {
+        // 不预先数距离：push_back 自己会按倍增扩容，
+        // 这样单遍迭代器（input iterator）也能用
+        for (InputIt it = first; it != last; ++it)
+        {
+            push_back(*it);
+        }
+    }
+
+    // 拷贝构造：申请一块新内存，把元素逐个复制过来——深拷贝。
+    // 若不写这一版，编译器生成的版本只做成员逐个拷贝（三个指针照抄），
+    // 两个对象会指向同一块内存，析构时同一块内存被 delete[] 两次。
+    vector(const vector<T>& other)
+    {
+        size_t n = other.size();
+        if (n > 0)
+        {
+            // 按元素个数申请，而不是按 other.capacity()：
+            // 容量是对方的实现细节，照搬过来只是浪费内存
+            _start = new T[n];
+            for (size_t i = 0; i < n; ++i)
+            {
+                _start[i] = other._start[i];
+            }
+            _finish = _start + n;
+            _endofstorage = _start + n;
+        }
+        // other 为空时保持三个空指针，capacity() 也是 0
+
+        // reserve(other.capacity());
+        // for (auto& e : other)
+        // {
+        //     push_back(e);
+        // }
+    }
+
+    // 移动构造：不分配、不复制，直接把对方的三个指针接过来，再把它置空。
+    // noexcept 的意思是"这个函数保证不抛异常"，编译器可以据此省掉一些
+    // 异常处理代码；容器扩容搬迁元素时，也只有在移动构造 noexcept 的情况下
+    // 才会优先选择移动而不是拷贝。
+    vector(vector<T>&& other) noexcept
+            : _start(other._start), _finish(other._finish), _endofstorage(other._endofstorage)
+    {
+        other._start = other._finish = other._endofstorage = nullptr;
+    }
+
+    // 交换：交换的是三个指针，不是整个对象。
+    // 这里可以放心用 std::swap——它交换的是指针值，不会反过来调到这个函数。
+    // 若写成 std::swap(*this, other)，就会变成死循环：
+    // std::swap 内部用移动构造 + 两次移动赋值，而移动赋值里又调用 swap。
+    void swap(vector<T>& other) noexcept
+    {
+        std::swap(_start, other._start);
+        std::swap(_finish, other._finish);
+        std::swap(_endofstorage, other._endofstorage);
+    }
+
+    // 拷贝赋值 + 移动赋值：按值传参，一个函数顶两个。
+    // 形参在进入函数之前就已经构造好：传左值走拷贝构造，传右值走移动构造。
+    // 之后只做一次 swap，旧的内存在形参 other 析构时自动释放——
+    // 所以既不用写 delete[]，也不用判自赋值，拷贝失败时 *this 一点没动。
+    vector<T>& operator=(vector<T> other)
+    {
+        swap(other);
+        return *this;
     }
 
     // [begin, end) 左闭右开，正好对应 [_start, _finish)
@@ -202,6 +311,53 @@ public:
         return erase(pos, pos + 1);
     }
 
+    // 清空所有元素：size() 变 0，capacity() 不变
+    void clear()
+    {
+        // 只把有效末尾收回起点，一个元素都不用动，所以是 O(1)。
+        // 空容器时 _start 与 _finish 同为 nullptr，赋完仍然是空容器。
+        // 坑位不在这里析构（原因同 pop_back）：槽位由 new T[n] 统一构造、
+        // delete[] 统一析构，若在此逐个析构，之后 push_back 的赋值
+        // 就变成对已析构对象赋值，属于未定义行为。
+        _finish = _start;
+    }
+
+    // 把元素个数调整到 n：多了截断，少了用 value 补齐。
+    // 标准库里这是两个重载（resize(n) 与 resize(n, value)），
+    // 这里用默认参数合成一个，逻辑只有一份。
+    void resize(size_t n, const T& value = T())
+    {   
+        if (n > size())
+        {
+            if (n > capacity())
+            {
+                // 和 insert 一样按倍增一次扩够：若只 reserve(n)，
+                // 反复 resize(size()+1) 会每次都重新分配，退化成 O(n²)
+                size_t newCapacity = capacity() == 0 ? 4 : capacity() * 2;
+                while (newCapacity < n)
+                {
+                    newCapacity *= 2;
+                }
+                reserve(newCapacity);
+            }
+
+            // reserve 可能换了内存，所以要在它之后再算末尾位置
+            T* newFinish = _start + n;
+            for (T* p = _finish; p < newFinish; ++p)
+            {
+                // 槽位在 new T[] 时就构造好了，直接赋值即可
+                *p = value;
+            }
+            _finish = newFinish;
+        }
+        else if (n < size())
+        {
+            // 只把有效末尾收回 _start + n，被"移出"的元素不析构（同 pop_back）
+            _finish = _start + n;
+        }
+        // n == size() 时什么都不用做
+    }
+
     T& operator[](size_t i)
     {
         assert(i < size());
@@ -214,11 +370,26 @@ public:
         return _start[i];
     }
 
+
     ~vector()
     {
-        delete[] _start;
+        if (_start)
+        {
+            delete[] _start;
+            _start = _finish = _endofstorage = nullptr;
+        }
     }
 };
+
+// 非成员 swap：只是转发给成员版本，两行换一个惯用法。
+// 有了它，调用侧的 `using std::swap; swap(a, b);` 会优先选中这个——
+// 它比 std::swap 的通用模板更特化；std::sort 之类的泛型代码也会通过 ADL 找到它。
+// 注意不能 specialize std::swap 来达到同样目的，往 std 里加东西是未定义行为。
+template<class T>
+void swap(vector<T>& a, vector<T>& b) noexcept
+{
+    a.swap(b);
+}
 
 } // namespace XiYue
 
