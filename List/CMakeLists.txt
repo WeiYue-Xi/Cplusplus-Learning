@@ -3,4 +3,5 @@ project(list)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(list main.cpp)
+add_executable(list main.cpp
+        example/list.h)

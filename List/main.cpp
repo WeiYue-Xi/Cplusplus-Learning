@@ -1,9 +1,11 @@
 #include <iostream>
 #include <algorithm>
-#include <list>
 
+#include "example/list.h"
+
+using namespace std;
 int main()
 {
-    
+
     return 0;
 }
