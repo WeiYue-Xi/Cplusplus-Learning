@@ -23,18 +23,22 @@ namespace XiYue
         {}
     };
 
-    template<class T>
+    // Ref / Ptr 决定"能不能通过迭代器改元素"：
+    //   Ref = T&       Ptr = T*        → iterator
+    //   Ref = const T& Ptr = const T*  → const_iterator（只能读）
+    // 同一份实现，只换这两个类型参数，不必写两份重复代码
+    template<class T, class Ref, class Ptr>
     struct _list_iterator
     {
         typedef list_node<T> Node;
-        typedef _list_iterator<T> Self;
+        typedef _list_iterator<T, Ref, Ptr> Self;
 
         // 迭代器萃取需要的五个类型，缺一个 std::iterator_traits 就取不到信息
         typedef std::bidirectional_iterator_tag iterator_category;
         typedef T value_type;
         typedef std::ptrdiff_t difference_type;
-        typedef T* pointer;
-        typedef T& reference;
+        typedef Ptr pointer;
+        typedef Ref reference;
 
         Node* _node;
 
@@ -102,13 +106,30 @@ namespace XiYue
         Node* _head;
 
     public:
-        typedef _list_iterator<T> iterator;
+        // 迭代器的类型由元素类型和"能不能改"共同决定
+        typedef _list_iterator<T, T&, T*> iterator;                 // 可读可写
+        typedef _list_iterator<T, const T&, const T*> const_iterator; // 只读
 
         list()
         {
             _head = new Node;
             _head -> _next = _head;
             _head -> _prev = _head;
+        }
+
+        // 析构：用迭代器从头走到尾，逐个释放节点，最后释放哨兵自己
+        ~list()
+        {
+            iterator it = begin();
+            while (it != end())
+            {
+                iterator next = it;     // 先存好下一个位置
+                ++next;                 // ++ 只改 _node，不会碰要被删的节点
+                delete it._node;         // 释放当前节点
+                it = next;              // 迭代器前进：此时它已经不是悬空的了
+            }
+            delete _head;
+            _head = nullptr;
         }
 
         // 第一个元素的位置：哨兵位的下一个
@@ -122,6 +143,17 @@ namespace XiYue
         iterator end()
         {
             return iterator(_head);
+        }
+
+        // const 对象只能拿到 const_iterator：遍历照常，但改不了元素
+        const_iterator begin() const
+        {
+            return const_iterator(_head -> _next);
+        }
+
+        const_iterator end() const
+        {
+            return const_iterator(_head);
         }
 
         void push_back(const T& x)
