@@ -6,6 +6,7 @@
 #define LIST_LIST_H
 #include <cstddef>      // std::ptrdiff_t
 #include <iterator>     // std::bidirectional_iterator_tag
+#include <memory>       // std::addressof
 
 namespace XiYue
 {
@@ -23,76 +24,144 @@ namespace XiYue
         {}
     };
 
-    // Ref / Ptr 决定"能不能通过迭代器改元素"：
-    //   Ref = T&       Ptr = T*        → iterator
-    //   Ref = const T& Ptr = const T*  → const_iterator（只能读）
-    // 同一份实现，只换这两个类型参数，不必写两份重复代码
-    template<class T, class Ref, class Ptr>
+    // 普通迭代器：保存一个节点指针，可以移动，也可以修改节点里的元素。
+    template<class T>
     struct _list_iterator
     {
         typedef list_node<T> Node;
-        typedef _list_iterator<T, Ref, Ptr> Self;
 
-        // 迭代器萃取需要的五个类型，缺一个 std::iterator_traits 就取不到信息
+        // 给标准算法看的类型信息；先理解下面的操作，再回来看这里。
         typedef std::bidirectional_iterator_tag iterator_category;
         typedef T value_type;
         typedef std::ptrdiff_t difference_type;
-        typedef Ptr pointer;
-        typedef Ref reference;
+        typedef T* pointer;
+        typedef T& reference;
 
-        Node* _node;
+        Node* _node; // 当前所在的节点
 
         _list_iterator(Node* node = nullptr)
             :_node(node)
         {}
 
-        reference operator*() const
+        // *it：取出当前元素。返回引用，所以 *it = 10 能修改原元素。
+        // 末尾的 const 只表示这个操作不会改变迭代器的位置。
+        T& operator*() const
         {
             return _node -> _data;
         }
 
-        // it->member 等价于 (&**it)->member，元素是自定义类型时要用它
-        pointer operator->() const
+        // it->member：返回当前元素的地址，再由指针访问它的成员。
+        T* operator->() const
         {
-            return &(_node -> _data);
+            return std::addressof(_node -> _data);
         }
 
-        // 前置 ++：返回引用，才能连写 ++(++it)；返回副本则概念检查也过不了
-        Self& operator++()
+        // ++it：先走到下一个节点，再返回移动后的迭代器本身。
+        // this 指向迭代器对象，*this 就是这个迭代器本身，不是节点里的元素。
+        _list_iterator& operator++()
         {
             _node = _node -> _next;
             return *this;
         }
 
-        // 后置 ++：返回自增之前的副本，必须按值返回
-        Self operator++(int)
+        // it++：保存旧位置，移动自己，返回旧位置的副本。
+        // int 是区分前置和后置写法的占位参数，不代表移动的步数。
+        _list_iterator operator++(int)
         {
-            Self tmp(*this);
-            _node = _node -> _next;
-            return tmp;
+            _list_iterator old = *this;
+            ++(*this);
+            return old;
         }
 
-        // 前置 --：双向迭代器才有，靠 _prev 往回走
-        Self& operator--()
+        // --it：走到前一个节点，返回移动后的自己。
+        _list_iterator& operator--()
         {
             _node = _node -> _prev;
             return *this;
         }
 
-        // 后置 --
-        Self operator--(int)
+        // it--：向前走，但返回移动之前的副本。
+        _list_iterator operator--(int)
         {
-            Self tmp(*this);
-            _node = _node -> _prev;
-            return tmp;
+            _list_iterator old = *this;
+            --(*this);
+            return old;
         }
 
-        bool operator==(const Self& it) const
+        // 比较的是节点位置，不是元素的值。
+        bool operator==(const _list_iterator& it) const
         {
             return _node == it._node;
         }
 
-        bool operator!=(const Self& it) const
+        bool operator!=(const _list_iterator& it) const
+        {
+            return _node != it._node;
+        }
+    };
+
+    // 只读迭代器：移动方式相同，取出的元素只能读，不能修改。
+    template<class T>
+    struct _list_const_iterator
+    {
+        typedef list_node<T> Node;
+
+        typedef std::bidirectional_iterator_tag iterator_category;
+        typedef T value_type;
+        typedef std::ptrdiff_t difference_type;
+        typedef const T* pointer;
+        typedef const T& reference;
+
+        const Node* _node;
+
+        _list_const_iterator(const Node* node = nullptr)
+            :_node(node)
+        {}
+
+        // 返回 const T&：可以读取 *it，但不能写 *it = 10。
+        const T& operator*() const
+        {
+            return _node -> _data;
+        }
+
+        const T* operator->() const
+        {
+            return std::addressof(_node -> _data);
+        }
+
+        // 只读限制的是元素，迭代器自己仍然可以前进、后退。
+        _list_const_iterator& operator++()
+        {
+            _node = _node -> _next;
+            return *this;
+        }
+
+        _list_const_iterator operator++(int)
+        {
+            _list_const_iterator old = *this;
+            ++(*this);
+            return old;
+        }
+
+        _list_const_iterator& operator--()
+        {
+            _node = _node -> _prev;
+            return *this;
+        }
+
+        _list_const_iterator operator--(int)
+        {
+            _list_const_iterator old = *this;
+            --(*this);
+            return old;
+        }
+
+        bool operator==(const _list_const_iterator& it) const
+        {
+            return _node == it._node;
+        }
+
+        bool operator!=(const _list_const_iterator& it) const
         {
             return _node != it._node;
         }
@@ -106,9 +175,8 @@ namespace XiYue
         Node* _head;
 
     public:
-        // 迭代器的类型由元素类型和"能不能改"共同决定
-        typedef _list_iterator<T, T&, T*> iterator;                 // 可读可写
-        typedef _list_iterator<T, const T&, const T*> const_iterator; // 只读
+        typedef _list_iterator<T> iterator;             // 可读可写
+        typedef _list_const_iterator<T> const_iterator; // 只读
 
         list()
         {
